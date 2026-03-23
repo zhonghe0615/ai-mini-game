@@ -322,7 +322,7 @@ wheels = [
 ]
 
 [[package]]
-name = "confieng"
+name = "confideng"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [

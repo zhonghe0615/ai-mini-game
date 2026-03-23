@@ -3,7 +3,7 @@
 
 ---
 
-![ConfiEng Demo](docs/demo_pic_1.png)
+![ConfidEng Demo](docs/demo_pic_1.png)
 
 ---
 
