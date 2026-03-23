@@ -14,6 +14,7 @@ dependencies = [
     "uvicorn[standard]>=0.32.0",
     "python-multipart>=0.0.9",
     "openai>=1.0.0",
+    "httpx[socks]>=0.27.0",
 ]
 
 # macOS 15 x86_64 上 onnxruntime 1.24 无对应 wheel，用 1.16.x（含 macosx_10_15_x86_64）
