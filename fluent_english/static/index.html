@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ConfiEng – Correct pronunciation, speak English confidently</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, sans-serif; margin: 0; padding: 12px; background: #1a1a2e; color: #eee; min-height: 100vh; display: flex; flex-direction: column; }
+    #headerRow { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+    #headerRow h1 { margin: 0; font-size: 1.25rem; }
+    #headerRow .langWrap { display: flex; align-items: center; gap: 6px; }
+    #headerRow .langWrap label { margin: 0; white-space: nowrap; }
+    #headerRow .langWrap select { padding: 6px 10px; border-radius: 6px; background: #16213e; color: #eee; border: 1px solid #444; font-size: 0.9rem; }
+    .headerActions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .headerBtn { padding: 6px 12px; border-radius: 6px; background: #0f3460; color: #eee; border: 1px solid #444; font-size: 0.9rem; cursor: pointer; }
+    .headerBtn:hover { background: #1a4a7a; }
+    #messages { flex: 1; overflow-y: auto; min-height: 200px; max-height: 50vh; padding: 8px; background: #16213e; border-radius: 8px; margin-bottom: 12px; }
+    .msg { margin-bottom: 10px; padding: 8px 12px; border-radius: 8px; max-width: 85%; }
+    .msg.user { margin-left: 0; margin-right: auto; background: #0f3460; }
+    .msg.agent { margin-left: auto; margin-right: 0; background: #533483; }
+    .msg .role { font-size: 0.75rem; opacity: 0.8; margin-bottom: 4px; }
+    #inputRow { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    #inputBoxWrap { flex: 1; min-width: 120px; display: flex; align-items: center; gap: 8px; padding: 6px 12px; border: 1px solid #444; border-radius: 8px; background: #16213e; }
+    #pendingWrap { display: flex; align-items: center; gap: 6px; }
+    #textIn { flex: 1; min-width: 0; padding: 6px 0; border: none; background: transparent; color: #eee; font-size: 1rem; outline: none; }
+    #textIn::placeholder { color: #888; }
+    button { padding: 10px 16px; border: none; border-radius: 8px; cursor: pointer; font-size: 0.95rem; }
+    #sendBtn { background: #0f3460; color: #eee; }
+    #sendBtn:hover { background: #1a4a7a; }
+    #voiceBtn { background: #533483; color: #eee; }
+    #voiceBtn:hover { background: #6b4a9e; }
+    #voiceBtn.recording { background: #c22; }
+    .error { color: #f88; font-size: 0.9rem; margin-top: 6px; }
+    #targetRow { margin-bottom: 8px; }
+    #targetIn { width: 100%; padding: 8px 10px; border: 1px solid #444; border-radius: 6px; background: #16213e; color: #eee; font-size: 0.9rem; }
+    #targetIn::placeholder { color: #888; }
+    label { font-size: 0.85rem; opacity: 0.9; }
+    .msg.loading .msg-body { min-height: 1.2em; display: flex; align-items: center; gap: 6px; }
+    .msg.loading .spinner { width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .msg-replay { margin-top: 6px; }
+    .msg-replay button { padding: 4px 10px; font-size: 0.8rem; background: rgba(255,255,255,0.2); color: #eee; border-radius: 6px; cursor: pointer; border: none; }
+    .msg.pending-voice { display: flex; align-items: flex-start; gap: 8px; }
+    .msg.pending-voice .msg-body { flex: 1; }
+    .msg-pending-close { flex-shrink: 0; width: 24px; height: 24px; padding: 0; border: none; border-radius: 50%; background: rgba(255,255,255,0.25); color: #eee; font-size: 1rem; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .msg-pending-close:hover { background: rgba(255,120,120,0.8); }
+    #pendingWrap .pending-voice-inline { margin: 0; padding: 4px 8px; border-radius: 16px; background: rgba(15,52,96,0.9); font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px; max-width: 260px; }
+    #pendingWrap .pending-voice-inline .msg-body { padding: 0; }
+    #pendingWrap .msg-pending-close { width: 18px; height: 18px; font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+  <div id="headerRow">
+    <h1 id="titleEl">ConfiEng – Chat & Voice</h1>
+    <div class="headerActions">
+      <button type="button" id="newChatBtn" class="headerBtn">New chat</button>
+      <div class="langWrap">
+        <label for="voiceLang" id="langLabelEl">Language</label>
+        <select id="voiceLang">
+        <option value="zh">中文</option>
+        <option value="ko">한국어</option>
+        <option value="ja">日本語</option>
+        <option value="en">English</option>
+      </select>
+      </div>
+    </div>
+  </div>
+  <div id="messages"></div>
+  <div id="targetRow">
+    <label for="targetIn" id="targetLabelEl">Target sentence (optional, for read-along check)</label>
+    <input type="text" id="targetIn" placeholder="Paste the sentence you are reading..." />
+  </div>
+  <div id="inputRow">
+    <div id="inputBoxWrap">
+      <div id="pendingWrap"></div>
+      <input type="text" id="textIn" placeholder="Type or use voice..." enterkeyhint="send" />
+    </div>
+    <button type="button" id="sendBtn">Send</button>
+    <button type="button" id="voiceBtn">Voice (Space 按开始/松停)</button>
+  </div>
+  <div id="error" class="error" aria-live="polite"></div>
+
+  <script>
+    const messagesEl = document.getElementById("messages");
+    const textIn = document.getElementById("textIn");
+    const sendBtn = document.getElementById("sendBtn");
+    const voiceBtn = document.getElementById("voiceBtn");
+    const targetIn = document.getElementById("targetIn");
+    const errorEl = document.getElementById("error");
+
+    const MAX_RECORD_SEC = 30;
+    let currentChatId = null;
+
+    const i18n = {
+      zh: {
+        title: "ConfiEng – 纠正读音，自信地说英语",
+        langLabel: "界面与语音语言",
+        targetLabel: "目标句（可选，跟读核对）",
+        targetPlaceholder: "粘贴你要读的句子…",
+        inputPlaceholder: "输入或使用语音…",
+        send: "发送",
+        voiceBtn: "语音 (空格 按开始/松停)",
+        loading: "处理中…",
+        replay: "🔊 重放",
+        you: "你",
+        agent: "Agent",
+        voicePreparing: "[Voice] 准备中…",
+        voicePendingHint: "按 Enter 或点发送发送，点 × 取消",
+        cancelVoice: "取消发送",
+        newChat: "新对话",
+      },
+      ko: {
+        title: "ConfiEng – 발음 교정, 자신 있게 영어로 말하기",
+        langLabel: "언어",
+        targetLabel: "목표 문장 (선택, 따라 읽기 확인)",
+        targetPlaceholder: "읽을 문장을 붙여넣으세요…",
+        inputPlaceholder: "입력하거나 음성 사용…",
+        send: "보내기",
+        voiceBtn: "음성 (스페이스 누르면 시작/놓으면 종료)",
+        loading: "처리 중…",
+        replay: "🔊 다시 재생",
+        you: "나",
+        agent: "Agent",
+        voicePreparing: "[Voice] 준비 중…",
+        voicePendingHint: "Enter 또는 보내기로 전송, ×로 취소",
+        cancelVoice: "전송 취소",
+        newChat: "새 대화",
+      },
+      ja: {
+        title: "ConfiEng – 発音矯正、自信を持って英語を話す",
+        langLabel: "言語",
+        targetLabel: "目標文（任意、リードアロング用）",
+        targetPlaceholder: "読む文を貼り付けてください…",
+        inputPlaceholder: "入力または音声で…",
+        send: "送信",
+        voiceBtn: "音声 (スペースで開始/離すと停止)",
+        loading: "処理中…",
+        replay: "🔊 再生",
+        you: "あなた",
+        agent: "Agent",
+        voicePreparing: "[Voice] 準備中…",
+        voicePendingHint: "Enter または送信で送る、×でキャンセル",
+        cancelVoice: "送信キャンセル",
+        newChat: "新規会話",
+      },
+      en: {
+        title: "ConfiEng – Correct pronunciation, speak English confidently",
+        langLabel: "Language",
+        targetLabel: "Target sentence (optional, for read-along check)",
+        targetPlaceholder: "Paste the sentence you are reading...",
+        inputPlaceholder: "Type or use voice...",
+        send: "Send",
+        voiceBtn: "Voice (Space to start/release to stop)",
+        loading: "Processing...",
+        replay: "🔊 Replay",
+        you: "You",
+        agent: "Agent",
+        voicePreparing: "[Voice] Preparing…",
+        voicePendingHint: "Press Enter or Send to send, × to cancel",
+        cancelVoice: "Cancel send",
+        newChat: "New chat",
+      },
+    };
+
+    function getUIStrings() {
+      const lang = (document.getElementById("voiceLang").value || "en");
+      return i18n[lang] || i18n.en;
+    }
+
+    function applyUI() {
+      const s = getUIStrings();
+      const t = document.getElementById("titleEl");
+      const l = document.getElementById("langLabelEl");
+      if (t) t.textContent = s.title;
+      if (l) l.textContent = s.langLabel;
+      const targetLabelEl = document.getElementById("targetLabelEl");
+      if (targetLabelEl) targetLabelEl.textContent = s.targetLabel;
+      if (targetIn) targetIn.placeholder = s.targetPlaceholder;
+      if (textIn) textIn.placeholder = s.inputPlaceholder;
+      if (sendBtn) sendBtn.textContent = s.send;
+      if (voiceBtn) voiceBtn.textContent = s.voiceBtn;
+      const newChatBtn = document.getElementById("newChatBtn");
+      if (newChatBtn) newChatBtn.textContent = s.newChat || "New chat";
+    }
+
+    function showError(msg) {
+      errorEl.textContent = msg || "";
+    }
+
+    function appendMessage(role, text) {
+      const s = getUIStrings();
+      const roleLabel = role === "user" ? s.you : s.agent;
+      const div = document.createElement("div");
+      div.className = "msg " + role;
+      div.innerHTML = "<span class=\"role\">" + escapeHtml(roleLabel) + "</span><div class=\"msg-body\">" + escapeHtml(text) + "</div>";
+      messagesEl.appendChild(div);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    function appendLoadingPlaceholder() {
+      const s = getUIStrings();
+      const div = document.createElement("div");
+      div.className = "msg agent loading";
+      div.setAttribute("data-loading", "1");
+      div.innerHTML = "<span class=\"role\">" + escapeHtml(s.agent) + "</span><div class=\"msg-body\"><span class=\"spinner\"></span> " + escapeHtml(s.loading) + "</div>";
+      messagesEl.appendChild(div);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+      return div;
+    }
+
+    function appendAgentMessageWithEffect(text, onDone, audioBase64) {
+      const s = getUIStrings();
+      const div = document.createElement("div");
+      div.className = "msg agent";
+      div.innerHTML = "<span class=\"role\">" + escapeHtml(s.agent) + "</span><div class=\"msg-body\"></div>";
+      messagesEl.appendChild(div);
+      const body = div.querySelector(".msg-body");
+      let i = 0;
+      const step = 2;
+      function type() {
+        if (i < text.length) {
+          body.textContent = text.slice(0, i + step);
+          i += step;
+          messagesEl.scrollTop = messagesEl.scrollHeight;
+          setTimeout(type, 24);
+        } else {
+          body.textContent = text;
+          if (onDone) onDone();
+          if (audioBase64) {
+            const replayRow = document.createElement("div");
+            replayRow.className = "msg-replay";
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.textContent = s.replay;
+            btn.addEventListener("click", () => playReplyAudio(audioBase64));
+            replayRow.appendChild(btn);
+            div.appendChild(replayRow);
+          }
+        }
+      }
+      type();
+    }
+
+    function escapeHtml(s) {
+      const div = document.createElement("div");
+      div.textContent = s;
+      return div.innerHTML;
+    }
+
+    function speak(text) {
+      if (!text || !window.speechSynthesis) return;
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = "en-US";
+      window.speechSynthesis.speak(u);
+    }
+
+    function playReplyAudio(base64Mp3) {
+      if (!base64Mp3) return;
+      try {
+        const bin = atob(base64Mp3);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        const blob = new Blob([bytes], { type: "audio/mpeg" });
+        const url = URL.createObjectURL(blob);
+        const a = new Audio(url);
+        a.onended = () => URL.revokeObjectURL(url);
+        a.onerror = () => URL.revokeObjectURL(url);
+        a.play();
+      } catch (e) {}
+    }
+
+    async function sendText(text) {
+      text = (text || "").trim();
+      if (!text) return;
+      appendMessage("user", text);
+      textIn.value = "";
+      sendBtn.disabled = true;
+      showError("");
+      const loadingEl = appendLoadingPlaceholder();
+      try {
+        const lang = (document.getElementById("voiceLang") && document.getElementById("voiceLang").value) || "";
+        const r = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text, language: lang || undefined, chat_id: currentChatId || undefined }),
+        });
+        if (!r.ok) {
+          const err = await r.json().catch(() => ({}));
+          throw new Error(err.detail || r.statusText || "Request failed");
+        }
+        const data = await r.json();
+        if (data.chat_id) currentChatId = data.chat_id;
+        loadingEl.remove();
+        appendAgentMessageWithEffect(data.reply || "", () => {
+          if (data.audio) playReplyAudio(data.audio);
+          else speak(data.reply || "");
+        }, data.audio || null);
+      } catch (e) {
+        loadingEl.remove();
+        showError(e.message || "Send failed");
+      } finally {
+        sendBtn.disabled = false;
+      }
+    }
+
+    function startNewChat() {
+      currentChatId = null;
+      messagesEl.innerHTML = "";
+      showError("");
+    }
+
+    let pendingVoice = null;
+
+    function cancelPendingVoice() {
+      if (!pendingVoice) return;
+      if (pendingVoice.bubbleEl && pendingVoice.bubbleEl.parentNode) pendingVoice.bubbleEl.remove();
+      pendingVoice = null;
+    }
+
+    function appendPendingVoiceBubble(preparing) {
+      const s = getUIStrings();
+      const bodyText = preparing ? (s.voicePreparing || "[Voice] Preparing…") : (s.voicePendingHint || "Enter/Send 发送，× 取消");
+      const pendingWrap = document.getElementById("pendingWrap");
+      if (!pendingWrap) return null;
+      const div = document.createElement("div");
+      div.className = "msg user pending-voice pending-voice-inline";
+      div.innerHTML =
+        "<div class=\"msg-body\">" + escapeHtml(bodyText) + "</div>" +
+        "<button type=\"button\" class=\"msg-pending-close\" title=\"" + escapeHtml(s.cancelVoice || "Cancel") + "\" aria-label=\"" + escapeHtml(s.cancelVoice || "Cancel") + "\">×</button>";
+      const closeBtn = div.querySelector(".msg-pending-close");
+      closeBtn.addEventListener("click", () => {
+        div._pendingCancelled = true;
+        if (pendingVoice && pendingVoice.bubbleEl === div) pendingVoice = null;
+        div.remove();
+      });
+      pendingWrap.appendChild(div);
+      return div;
+    }
+
+    function doSend() {
+      if (pendingVoice) {
+        sendPendingVoice();
+        return;
+      }
+      sendText(textIn.value);
+    }
+
+    sendBtn.addEventListener("click", doSend);
+    textIn.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); doSend(); } });
+
+    const voiceLangEl = document.getElementById("voiceLang");
+    if (voiceLangEl) {
+      voiceLangEl.addEventListener("change", applyUI);
+      applyUI();
+    }
+    const newChatBtn = document.getElementById("newChatBtn");
+    if (newChatBtn) newChatBtn.addEventListener("click", startNewChat);
+
+    let mediaRecorder = null;
+    let chunks = [];
+    let recordTimer = null;
+    let releaseTimer = null;
+    let currentStream = null;
+    let ffmpegLoaded = false;
+    let recordingCancelled = false;
+
+    const RELEASE_DELAY_MS = 1000;
+
+    let fetchFileFn = null;
+    async function webmToWav(webmBlob) {
+      if (!ffmpegLoaded) {
+        showError("Loading converter...");
+        const { FFmpeg } = await import("/ffmpeg/ffmpeg/index.js");
+        const util = await import("https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/+esm");
+        fetchFileFn = util.fetchFile;
+        window._ffmpeg = new FFmpeg();
+        await window._ffmpeg.load({
+          coreURL: "/ffmpeg/core/ffmpeg-core.js",
+          wasmURL: "/ffmpeg/core/ffmpeg-core.wasm",
+          workerURL: "/ffmpeg/ffmpeg/worker.js",
+        });
+        ffmpegLoaded = true;
+        showError("");
+      }
+      const ffmpeg = window._ffmpeg;
+      await ffmpeg.writeFile("in.webm", await fetchFileFn(webmBlob));
+      await ffmpeg.exec(["-i", "in.webm", "-acodec", "pcm_s16le", "-ar", "16000", "out.wav"]);
+      const data = await ffmpeg.readFile("out.wav");
+      await ffmpeg.deleteFile("in.webm");
+      await ffmpeg.deleteFile("out.wav");
+      return new Blob([data], { type: "audio/wav" });
+    }
+
+    async function doStopAndStore() {
+      if (recordTimer) { clearInterval(recordTimer); recordTimer = null; }
+      if (currentStream) { currentStream.getTracks().forEach((t) => t.stop()); currentStream = null; }
+      const s = getUIStrings();
+      voiceBtn.classList.remove("recording");
+      voiceBtn.textContent = s.voiceBtn;
+      if (recordingCancelled) {
+        recordingCancelled = false;
+        chunks = [];
+        return;
+      }
+      if (chunks.length === 0) return;
+      const blob = new Blob(chunks, { type: "audio/webm" });
+      chunks = [];
+      const bubbleEl = appendPendingVoiceBubble(true);
+      voiceBtn.disabled = true;
+      showError("");
+      try {
+        showError("Converting to WAV...");
+        const wavBlob = await webmToWav(blob);
+        showError("");
+        if (bubbleEl._pendingCancelled || !bubbleEl.parentNode) return;
+        const bodyEl = bubbleEl.querySelector(".msg-body");
+        if (bodyEl) bodyEl.textContent = s.voicePendingHint;
+        pendingVoice = { wavBlob, bubbleEl };
+      } catch (e) {
+        bubbleEl.remove();
+        showError(e.message || "Convert failed");
+      } finally {
+        voiceBtn.disabled = false;
+      }
+    }
+
+    async function sendPendingVoice() {
+      if (!pendingVoice || !pendingVoice.wavBlob) return;
+      const wavBlob = pendingVoice.wavBlob;
+      pendingVoice.bubbleEl.remove();
+      pendingVoice = null;
+      const s = getUIStrings();
+      appendMessage("user", "[Voice] " + (s.loading || "Sending…"));
+      const userMsgs = messagesEl.querySelectorAll(".msg.user");
+      const userBody = userMsgs[userMsgs.length - 1].querySelector(".msg-body");
+      const loadingEl = appendLoadingPlaceholder();
+      sendBtn.disabled = true;
+      showError("");
+      try {
+        const fd = new FormData();
+        fd.append("file", wavBlob, "audio.wav");
+        const target = (targetIn ? targetIn.value : "") || "";
+        if (target.trim()) fd.append("target", target.trim());
+        const voiceLang = document.getElementById("voiceLang");
+        if (voiceLang && voiceLang.value) fd.append("language", voiceLang.value);
+        if (currentChatId) fd.append("chat_id", currentChatId);
+        const r = await fetch("/api/speech/stream", { method: "POST", body: fd });
+        if (!r.ok) {
+          const err = await r.json().catch(() => ({}));
+          throw new Error(err.detail || r.statusText || "Speech failed");
+        }
+        const reader = r.body.getReader();
+        const dec = new TextDecoder();
+        let buf = "";
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buf += dec.decode(value, { stream: true });
+          const lines = buf.split("\n");
+          buf = lines.pop() || "";
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            try {
+              const data = JSON.parse(line);
+              if (data.type === "chat_id" && data.chat_id) currentChatId = data.chat_id;
+              else if (data.type === "transcript") {
+                if (userBody) userBody.textContent = "[Voice] " + (data.text || "");
+                messagesEl.scrollTop = messagesEl.scrollHeight;
+              } else if (data.type === "done") {
+                if (loadingEl) loadingEl.remove();
+                if (data.reply) {
+                  appendAgentMessageWithEffect(data.reply, () => {
+                    if (data.audio) playReplyAudio(data.audio);
+                    else speak(data.reply);
+                  }, data.audio || null);
+                }
+              }
+            } catch (_) {}
+          }
+        }
+        if (buf.trim()) {
+          try {
+            const data = JSON.parse(buf);
+            if (data.type === "chat_id" && data.chat_id) currentChatId = data.chat_id;
+            if (data.type === "done" && loadingEl) {
+              loadingEl.remove();
+              if (data.reply) {
+                appendAgentMessageWithEffect(data.reply, () => {
+                  if (data.audio) playReplyAudio(data.audio);
+                  else speak(data.reply);
+                }, data.audio || null);
+              }
+            }
+          } catch (_) {}
+        }
+      } catch (e) {
+        if (loadingEl) loadingEl.remove();
+        if (userBody) userBody.textContent = "[Voice] （发送失败）";
+        showError(e.message || "Voice failed");
+      } finally {
+        sendBtn.disabled = false;
+      }
+    }
+
+    async function startRecording() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        currentStream = stream;
+        mediaRecorder = new MediaRecorder(stream);
+        chunks = [];
+        mediaRecorder.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
+        mediaRecorder.onstop = () => { doStopAndStore(); };
+        mediaRecorder.start();
+        voiceBtn.classList.add("recording");
+        voiceBtn.textContent = "Recording... release Space";
+      } catch (e) {
+        showError(e.message || "Microphone access denied");
+      }
+    }
+
+    function stopRecordingAfterDelay() {
+      releaseTimer = null;
+      if (mediaRecorder && mediaRecorder.state === "recording") mediaRecorder.stop();
+    }
+
+    document.addEventListener("keydown", async (e) => {
+      if (e.key === "Escape" && mediaRecorder && mediaRecorder.state === "recording") {
+        e.preventDefault();
+        recordingCancelled = true;
+        if (releaseTimer) { clearTimeout(releaseTimer); releaseTimer = null; }
+        mediaRecorder.stop();
+        return;
+      }
+      if (e.key !== " " || e.target.closest("input, textarea, select")) return;
+      e.preventDefault();
+      if (mediaRecorder && mediaRecorder.state === "recording") return;
+      if (e.repeat) return;
+      await startRecording();
+    });
+
+    document.addEventListener("keyup", (e) => {
+      if (e.key !== " ") return;
+      e.preventDefault();
+      if (releaseTimer) { clearTimeout(releaseTimer); releaseTimer = null; }
+      if (mediaRecorder && mediaRecorder.state === "recording") {
+        voiceBtn.textContent = "Stopping in 1s...";
+        releaseTimer = setTimeout(stopRecordingAfterDelay, RELEASE_DELAY_MS);
+      }
+    });
+
+    voiceBtn.addEventListener("click", async () => {
+      if (mediaRecorder && mediaRecorder.state === "recording") {
+        if (releaseTimer) clearTimeout(releaseTimer);
+        releaseTimer = setTimeout(stopRecordingAfterDelay, RELEASE_DELAY_MS);
+        voiceBtn.textContent = "Stopping in 1s...";
+        return;
+      }
+      await startRecording();
+    });
+  </script>
+</body>
+</html>

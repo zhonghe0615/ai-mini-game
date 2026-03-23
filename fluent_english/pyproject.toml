@@ -1,0 +1,23 @@
+[project]
+name = "confieng"
+version = "0.1.0"
+description = "Correct pronunciation, speak English confidently"
+requires-python = ">=3.10"
+dependencies = [
+    "langchain>=0.3.0",
+    "langchain-openai>=0.2.0",
+    "langchain-core>=0.3.0",
+    "langchain-chroma>=0.1.0",
+    "chromadb>=0.4.0",
+    "python-dotenv>=1.0.0",
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "python-multipart>=0.0.9",
+    "openai>=1.0.0",
+]
+
+# macOS 15 x86_64 上 onnxruntime 1.24 无对应 wheel，用 1.16.x（含 macosx_10_15_x86_64）
+[tool.uv]
+override-dependencies = [
+    "onnxruntime>=1.16.0,<1.17",
+]
